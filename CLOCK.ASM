@@ -1,0 +1,163 @@
+STACK SEGMENT STACK
+	DW 200 DUP(?)
+STACK ENDS
+DATA SEGMENT 
+	SPACE DB 1000 DUP(' ')
+	PATTERN DB 6 DUP(' '),28 DUP(07EH),6 DUP(' ')
+			DB 6 DUP(' '),07CH,26 DUP(' '),07CH,6 DUP(' ')
+			DB 6 DUP(' '),28 DUP(07EH),6 DUP(' ')
+	DBUFFER DB 8 DUP('-'),12 DUP(' ')
+	DBUFFE	DB 8 DUP(':'),12 DUP(' ')
+	STR 	DB 0DH,0AH,'PLEASE INPUT DATE(D) OR TIME(T) OR QUIT(Q): $'
+DATA ENDS
+CODE SEGMENT 
+		ASSUME CS:CODE,DS:DATA,ES:DATA,SS:STACK
+START:	MOV AX,0001H		;设置显示方式为40*25H彩色文本方式
+		INT 10H
+		MOV AX,DATA
+		MOV DS,AX
+		MOV ES,AX
+		MOV BP,OFFSET SPACE	;BP字符串地址
+		MOV DX,0000H		;起始行列
+		MOV CX,1000			;字符串长度
+		MOV BX,0040H		;显示属性
+		MOV AX,1300H		;功能号为13，显示字符串（AL为写方式）
+		INT 10H
+		MOV BP,OFFSET PATTERN
+		MOV DX,0B00H		
+		MOV CX,120
+		MOV BX,0047H		;字符颜色属性（底色为红色，字符颜色为白色）
+		MOV AX,1301H		;显示字符串（写方式：AL=0）
+		INT 10H
+		LEA DX,STR
+		MOV AH,9			;显示提示信息
+		INT 21H
+		MOV AH,1			;从键盘输入单个字符
+		INT 21H
+		CMP AL,44H			;AL='D'?
+		JNE	A
+		CALL DATE			;显示系统日期
+A:		CMP AL,54H			;AL='T'?
+		JNE	B
+		CALL TIME			;显示系统时间
+B:
+		CMP AL,51H			;AL='Q'?
+		JNE START
+		MOV AH,4CH			;返回DOS状态
+		INT 21H
+DATE PROC NEAR				;显示日期子程序
+DISPL:
+		MOV AH,2AH			;取系统日期
+		INT 21H				;CX=年，DH=月，DL=日
+		MOV SI,0
+		MOV AX,CX
+		MOV BX,100
+		DIV BL			;商->AL  余数->AH。年份有4位，要转换2次
+		MOV BL,AH
+		CALL BCDASC1	;处理转换 商AL=20；年份（20）
+		MOV AL,BL
+		CALL BCDASC1	;处理转换 余数AL=14；年份（14）
+		INC SI			;可以输出":"
+		MOV AL,DH
+		CALL BCDASC1	;处理月份（11月）
+		INC SI
+		MOV AL,DL
+		CALL BCDASC1	;处理日期
+		MOV BP,OFFSET DBUFFER	;字符串地址
+		MOV DX,0C0DH	;起始行列
+		MOV CX,20		;字符串长度
+		MOV BX,004EH	;显示颜色
+		MOV AX,1301H	;13号功能：显示字符串（写方式：AL=01）
+		INT 10H
+		MOV AH,02H		;置光标位置
+		MOV DX,1000H	;行/列
+		MOV BH,0		;显示页
+		INT 10H
+		MOV BX,0010H
+REPEA:
+		MOV CX,0FH		;延时
+REPEAT:
+		LOOP REPEAT
+		DEC BX
+		JNZ	REPEA
+		MOV AH,01H		;读键盘缓冲区字符到AL寄存器中
+		INT 16H
+		;JE DISPL
+		JMP START
+		MOV AX,4C00H
+		INT 21H
+		RET
+DATE ENDP
+
+TIME PROC NEAR
+DISPLAY1:
+		MOV SI,0
+		MOV BX,100
+		DIV BL
+		MOV AH,2CH		;取系统时间  CH=时（0~23），CL=分，
+		INT 21H			;DH=秒，DL=百分秒
+		MOV AL,CH		
+		CALL BCDASC		;处理转换	时
+		INC SI			
+		MOV AL,CL		
+		CALL BCDASC		;处理转换   分
+		INC SI
+		MOV AL,DH
+		CALL BCDASC		;处理转换   秒
+		MOV BP,OFFSET DBUFFE
+		MOV DX,0C0DH
+		MOV CX,20
+		MOV BX,004EH
+		MOV AX,1301H	;显示字符串
+		INT 10H
+		MOV AH,02H
+		MOV DX,0300H
+		MOV BH,0
+		INT 10H			;置光标位置
+		MOV BX,0018H
+RE:
+		MOV CX,0FH		;延时
+REA:
+		LOOP REA
+		DEC BX
+		JNZ	RE
+		MOV AH,01H		;读键盘缓冲区字符到Al寄存器中
+		INT 16H
+		;JE DISPLAY1
+		JMP START
+		MOV AX,4C00H
+		INT 21H
+		RET
+TIME ENDP
+
+BCDASC	PROC NEAR
+		PUSH BX
+		CBW
+		MOV BL,10
+		DIV BL
+		ADD AL,'0'
+		MOV DBUFFE[SI],AL
+		INC SI
+		ADD AH,'0'
+		MOV DBUFFE[SI],AH
+		INC SI
+		POP BX
+		RET
+BCDASC ENDP
+
+BCDASC1	PROC NEAR
+		PUSH BX
+		CBW
+		MOV BL,10
+		DIV BL
+		ADD AL,'0'
+		MOV DBUFFER[SI],AL
+		INC SI
+		ADD AH,'0'
+		MOV DBUFFER[SI],AH
+		INC SI
+		POP BX
+		RET 
+BCDASC1	ENDP
+CODE ENDS
+		END START

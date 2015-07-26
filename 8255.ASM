@@ -1,0 +1,29 @@
+
+MY8255_A    EQU  218H
+MY8255_C    EQU  21aH
+MY8255_MODE EQU  21bH
+
+CODE SEGMENT
+        ASSUME CS:CODE
+
+START: MOV DX,MY8255_MODE
+       MOV AL,89H
+       OUT DX,AL
+A1:    MOV DX,MY8255_C
+       IN  AL,DX
+       MOV DX,MY8255_A
+       OUT DX,AL
+       
+
+
+       MOV AH,0BH
+       INT 21H
+       CMP AL,0
+       JZ A1
+       
+       MOV AX,4C00H
+       INT 21H
+JMP A1
+
+CODE ENDS
+     END START
